@@ -1,0 +1,296 @@
+---
+title: "Mid-term project"
+author: "Eric_NIYITANGA"
+Reg: 101393
+date: "2025-10-09"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+# ACtivating Packages that are used in analysis
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(tidyverse)
+
+```
+
+```{r}
+# Loading World data
+world_pop<- read.csv("D:/Dta_for_midterm/World population dataset/world_population.csv")
+head(world_pop, n = 5)
+```
+
+```{r}
+# Checking the dimension of data
+
+dim(world_pop) 
+```
+
+```{r}
+tail(world_pop, n = 10)
+```
+
+```{r}
+str(world_pop)
+```
+
+```{r}
+# Loading CO2 emission
+carbon_emission<- read.csv("D:/Dta_for_midterm/co2 emission/CO2_emission.csv")
+
+head(carbon_emission, n = 5)
+```
+
+```{r}
+tail(carbon_emission, n = 10)
+```
+
+```{r}
+typeof(carbon_emission)
+```
+
+```{r}
+str(carbon_emission)
+```
+
+```{r}
+# Use boxplot to visualize outliers
+# Select only numeric columns
+quant_vars <- world_pop %>%
+  select(where(is.numeric))
+# Convert to long format for ggplot or we can use gather()
+long_data <- quant_vars %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value")
+ggplot(long_data, aes(x = Variable, y = Value)) +
+  geom_boxplot(fill = "skyblue", outlier.color = "red", outlier.shape = 8) + theme_minimal() + labs(title = "Boxplot of Quantitative Variables", x = "Variable", y = "Value") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+replace_outliers <- function(x) {
+  q1 <- quantile(x, 0.25, na.rm = TRUE)
+  q3 <- quantile(x, 0.75, na.rm = TRUE)
+  iqr <- IQR(x, na.rm = TRUE)
+  x[x < (q1 - 1.5 * iqr) | x > (q3 + 1.5 * iqr)] <- NA
+  return(x)
+}
+
+world_pop_clean <- world_pop %>%
+  mutate(across(where(is.numeric), replace_outliers))
+world_pop_clean
+
+```
+
+
+```{r}
+library(dplyr)
+# Removing duplication in dataset of world population
+world_pop_cleaned<-distinct(world_pop)
+head(world_pop_cleaned,n = 5)
+```
+
+```{r}
+carbon_emission_cleaned<- carbon_emission%>%distinct()
+head(carbon_emission_cleaned, n = 5)
+```
+
+
+```{r}
+dim(carbon_emission_cleaned) # Carbon
+```
+
+```{r}
+# dimension of data
+dim(world_pop)
+```
+
+
+```{r}
+# Checking missing values in world population
+
+colSums(is.na(world_pop_cleaned))
+```
+
+```{r}
+# Checking missing values in Carbon emission dataset
+colSums(is.na(carbon_emission_cleaned))
+```
+
+```{r}
+# Removing missing values in CO2 emission
+carbon_emission_cleaned<- na.omit(carbon_emission_cleaned)
+head(carbon_emission_cleaned, n = 5)
+```
+
+```{r}
+# Checking the dimension of cleaned dataset to see if rows has reduced
+dim(carbon_emission_cleaned)
+```
+
+
+```{r}
+#Generating a new variable
+world_pop_cleaned <- world_pop_cleaned %>% mutate(Population_2030= X2022.Population * exp(Growth.Rate*8))
+
+```
+
+```{r}
+#select only two variable
+world_pop_cleaned %>% select(Country.Territory,Population_2030) %>% head(5)
+```
+
+```{r}
+# top 10 most populous counties and their population number during 2022.
+top_10_pop_countries<- world_pop_cleaned %>% select(Country.Territory,X2022.Population) %>% arrange(desc(X2022.Population)) %>% slice(1:10)
+top_10_pop_countries
+```
+
+```{r}
+#Activate ggplot2 package
+library(ggplot2)
+library(tidyr)
+```
+
+```{r}
+# Here we use barchart because it is categorical variables
+ggplot(top_10_pop_countries, aes(x= reorder(Country.Territory,X2022.Population), y = X2022.Population)) + geom_bar(stat = "identity", color= "grey")+labs(title = "Top 10 Most Populous Countries in 2022",x = "Country",y = "Population") +coord_flip()+ theme_minimal()
+```
+
+
+The trend in their population number since 1990-2022
+```{r}
+# top 10 populous countries
+pop_count<- world_pop_cleaned %>% select(Country.Territory, X2022.Population:X1990.Population) %>% arrange(desc(X2022.Population)) %>% head(10)
+# Renaming columns
+pop_count<- pop_count %>% rename('1990'= X1990.Population, '2000'= X2000.Population,'2010'=X2010.Population,'2015'=X2015.Population,'2020'=X2020.Population,'2022'=X2022.Population)
+
+World_Pop_top10_reshape <- gather(pop_count, key = "Year", value = "Population", '1990':'2022')
+
+ggplot(World_Pop_top10_reshape, aes(x = Year, y = Population, group = Country.Territory, color = Country.Territory)) +
+  geom_line() +
+  labs(title = "Population Trend for Top 10 Countries (1990-2022)") +
+  theme_minimal()
+
+```
+
+```{r}
+# Get list of the same top 10 countries
+top10_countries <- pop_count$Country.Territory
+
+# Filter CO2 dataset for only top 10 countries
+co2_top10 <- carbon_emission_cleaned %>%
+  filter(Country.Name %in% top10_countries)
+
+co2_top10 <- co2_top10 %>%
+  select(Country.Name, X1990:X2019)
+# remove the "X" before year numbers
+co2_top10 <- co2_top10 %>%
+  rename_with(~ gsub("X", "", .x))  
+# Reshape our dataframe
+co2_top10_reshape <- gather(co2_top10, key = "Year", value = "CO2_Emissions", '1990':'2019')
+
+ggplot(co2_top10_reshape, aes(x = Year, y = CO2_Emissions,group = Country.Name, color = Country.Name)) + geom_line(size = 1) + labs(title = "CO2 Emission Trend (1990–2019) for Top 10 Most Populous Countries",x = "Year",y = "CO2 Emissions ") +theme_minimal()+ theme(legend.position = "bottom",axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+
+```
+
+Correlation Analysis
+
+```{r}
+library(reshape2)
+# Selecting our variables
+pop_corr<- world_pop_cleaned %>% select(Area..km..,Density..per.km..,Growth.Rate,World.Population.Percentage)
+# Creating correlation between variables
+corr_table<- cor(pop_corr)
+
+# Convert matrix into a format ggplot can use
+cor_data <- melt(corr_table)
+
+# Plot the heatmap
+ggplot(cor_data, aes(x = Var1, y = Var2, fill = value)) + geom_tile(color = "white") + scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, limit = c(-1, 1),name = "Correlation") + theme_minimal() + labs(title = "Correlation Heatmap of Area, Density, Growth Rate & World Population %", x = "", y = "") + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+
+```
+
+Merging Dataset
+```{r}
+# Renaming country.territory to Country.name
+
+world_pop_cleaned<- world_pop_cleaned %>% rename('Country.Name'= Country.Territory)
+
+```
+```{r}
+merged_data<- merge(world_pop_cleaned,carbon_emission_cleaned, by = 'Country.Name')
+
+```
+
+```{r}
+ggplot(merged_data, aes(x = X2022.Population, y = X2019)) + geom_point(color = "steelblue", size = 2) + geom_smooth(method = "lm", se = TRUE, color = "darkred") + labs(title = "Relationship Between Population and CO2 Emissions (2019)", x = "2022 Population", y = "2019 CO2 Emissions (tons per capita)") + theme_minimal()
+
+```
+```{r}
+# Correlation coefficient
+cor(merged_data$X2022.Population, merged_data$X2019) # There's weak correlation between this variables.
+
+```
+```{r}
+# Linear regression model
+model <- lm(merged_data$X2019~merged_data$X2022.Population, data = merged_data)
+
+# Summary of regression
+summary(model)
+
+```
+Sum CO2 emissions by continent
+```{r}
+# Total Population of 2019 using 2015 populations
+# Creating new variable
+
+merged_data <- merged_data %>% mutate(population_2019= X2015.Population * Growth.Rate)
+
+co2_by_continent <- merged_data %>%
+  group_by(Continent) %>%
+  summarise(Total_CO2_2019 = sum(X2019), Total_pop_2019= sum(population_2019)) %>%
+  arrange(desc(Total_CO2_2019))
+co2_by_continent
+
+```
+```{r}
+ggplot(co2_by_continent, aes(x = reorder(Continent, -Total_CO2_2019), y = Total_CO2_2019)) + geom_bar(stat = "identity", fill = "lightgreen") +
+  labs(title = "Total CO2 Emissions by Continent (2019)",x = "Continent", y = "Total CO2 Emissions (metric tons per capita)") + theme_minimal()
+
+```
+
+
+First continent with highest CO2 emissions
+```{r}
+# First continent with highest CO₂ emissions
+co2_by_continent$Continent[1]
+
+
+```
+```{r}
+ # Third continent and its total emissions
+co2_by_continent[3,]
+```
+
+
+```{r}
+# Creating emisssion per capita
+co2_by_continent<- co2_by_continent %>% mutate( total_emission_per_capita= Total_CO2_2019/Total_pop_2019)
+co2_by_continent_capita<- co2_by_continent %>% arrange(desc(total_emission_per_capita))
+co2_by_continent_capita$Continent[3]
+```
+```{r}
+# Last continent and its total emissions
+
+co2_by_continent$Continent[length(co2_by_continent$Continent)]
+```
+```{r}
+# Last continent by total emission(metric tons per capita)
+
+co2_by_continent_capita$Continent[length(co2_by_continent$Continent)]
+```
+
