@@ -1,0 +1,56 @@
+---
+title: "R_Assignment"
+author: "Eric"
+date: "2025-10-12"
+output:
+  html_document: default
+  pdf_document: default
+---
+trace() and recover() are used for debugging in R.
+
+Trace() allows you to get inside a function and add a message or action, such as displaying the inputs, without affecting the original code. 
+
+ When an error occurs, you can use recover() to figure out what went wrong.  It pauses the application and displays a list of the stages that resulted in the problem, allowing you to hop in and examine the values at each step.
+
+```{r}
+# A simple function that multiplies two numbers
+multiply_values <- function(num1, num2) {
+  product <- num1 * num2
+  return(product)
+}
+
+# Use trace() to print inputs when multiply_values() is called
+trace("multiply_values", tracer = quote(cat("Tracing: num1 =", num1, "num2 =", num2, "\n")))
+
+# Call the function to see trace output
+multiply_values(4, 7)
+
+# Remove the trace after testing
+untrace("multiply_values")
+
+
+```
+
+
+```{r, error=TRUE}
+# Enable recover() to inspect errors interactively
+options(error = recover)
+
+# Function that performs subtraction
+subtract_values <- function(a, b) {
+  result <- a - b
+  return(result)
+}
+
+# Function that uses subtract_values() and causes an error
+compute_difference <- function(x) {
+  y <- x * 2
+  z <- subtract_values(y, "five")   # Error: cannot subtract a character
+  return(z)
+}
+
+# Call the function to trigger recover()
+compute_difference(8)
+
+```
+
